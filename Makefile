@@ -1,6 +1,9 @@
-all: rubik3
+
+CC = clang++
+CFLAGS = -std=c++17 -O3
+
 rubik3: rubik3.cc
-	clang++ rubik3.cc -o rubik3
+	$(CC) $(CFLAGS) $< -o $@
 
 clean:
 	rm -rf rubik3

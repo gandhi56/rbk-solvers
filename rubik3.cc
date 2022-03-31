@@ -2,6 +2,7 @@
 #include <ostream>
 #include <map>
 #include <vector>
+#include <array>
 
 #define N 3
 
@@ -122,120 +123,68 @@ void Rubik3::unfold_and_show(){
 }
 
 Rubik3 Rubik3::next(Move move){
-    Rubik3 new_rubik = *this;    // copy this cube over
-    if (move == Move::F){
-        // translate squares in the front face
-        // 0 -> 2 -> 8 -> 6
-        // 1 -> 5 -> 7 -> 3
+    Rubik3 new_rubik = *this;
+    
+    // Define a lambda for face rotation. 
+    // Remark, other side of the edge pieces 
+    // are unchanged
+    auto rotate_face = [&](Face face){
+        // define even and odd subgroups
         int even[] = {0, 2, 8, 6};
         int odd[] = {1, 5, 7, 3};
-        for (int i = 0; i+1 < 4; ++i){
-            new_rubik.cube[FRONT][even[i+1]] = cube[FRONT][even[i]];
-            new_rubik.cube[FRONT][odd[i+1]] = cube[FRONT][odd[i]];
+
+        // 'invert' the subgroups
+        if (move == Fi){
+            std::swap(even[1], even[3]);
+            std::swap(odd[1], odd[3]);
         }
-        new_rubik.cube[FRONT][even[0]] = cube[FRONT][even[3]];
-        new_rubik.cube[FRONT][odd[0]] = cube[FRONT][odd[3]];
 
-        // translate the edge squares
-        // up -> right
-        // 6,7,8 -> 0,3,6
-        new_rubik.cube[RIGHT][0] = cube[UP][6];
-        new_rubik.cube[RIGHT][3] = cube[UP][7];
-        new_rubik.cube[RIGHT][6] = cube[UP][8];
+        // assign the colors
+        for (int i = 0; i+1 < 4; ++i){
+            new_rubik.cube[face][even[i+1]] = cube[face][even[i]];
+            new_rubik.cube[face][odd[i+1]] = cube[face][odd[i]];
+        }
+        new_rubik.cube[face][even[0]] = cube[face][even[3]];
+        new_rubik.cube[face][odd[0]] = cube[face][odd[3]];
+    };
 
-        // right -> down
-        // 0,3,6 -> 0,1,2
-        new_rubik.cube[DOWN][0] = cube[RIGHT][0];
-        new_rubik.cube[DOWN][1] = cube[RIGHT][3];
-        new_rubik.cube[DOWN][2] = cube[RIGHT][6];
-
-        // down -> left
-        // 0,1,2 -> 2,5,8
-        new_rubik.cube[LEFT][2] = cube[DOWN][0];
-        new_rubik.cube[LEFT][5] = cube[DOWN][1];
-        new_rubik.cube[LEFT][8] = cube[DOWN][2]; 
-        
-        // left -> up
-        // 2,5,8 -> 6,7,8
-        new_rubik.cube[UP][6] = cube[LEFT][2];
-        new_rubik.cube[UP][7] = cube[LEFT][5];
-        new_rubik.cube[UP][8] = cube[LEFT][8]; 
+    // Define a lambda to rotate the edge pieces.
+    // f1 is the dest face and f2 is the source face.
+    auto rotate_edge_pieces = 
+        [&](Face f1, std::array<int, 3> f1Idx, 
+        Face f2, std::array<int, 3> f2Idx){
+            new_rubik.cube[f1][f1Idx[0]] = cube[f2][f2Idx[0]];
+            new_rubik.cube[f1][f1Idx[1]] = cube[f2][f2Idx[1]];
+            new_rubik.cube[f1][f1Idx[2]] = cube[f2][f2Idx[2]];
+        };
+    
+    if (move == Move::F){
+        rotate_face(FRONT);
+        rotate_edge_pieces(RIGHT, {0,3,6}, UP, {6,7,8});
+        rotate_edge_pieces(DOWN, {0,1,2}, RIGHT, {0,3,6});
+        rotate_edge_pieces(LEFT, {2,5,8}, DOWN, {0,1,2});
+        rotate_edge_pieces(UP, {6,7,8}, LEFT, {2,5,8});
     }
     else if (move == Fi){
-        // translate squares in the front face
-        // 0 -> 6 -> 8 -> 2
-        // 1 -> 3 -> 7 -> 5
-        int even[] = {0, 6, 8, 2};
-        int odd[] = {1, 3, 7, 5};
-        for (int i = 0; i+1 < 4; ++i){
-            new_rubik.cube[FRONT][even[i+1]] = cube[FRONT][even[i]];
-            new_rubik.cube[FRONT][odd[i+1]] = cube[FRONT][odd[i]];
-        }
-        new_rubik.cube[FRONT][even[0]] = cube[FRONT][even[3]];
-        new_rubik.cube[FRONT][odd[0]] = cube[FRONT][odd[3]];
-
-        // translate the edge squares
-        // up -> left
-        // 6,7,8 -> 2,5,8
-        new_rubik.cube[LEFT][2] = cube[UP][6];
-        new_rubik.cube[LEFT][5] = cube[UP][7];
-        new_rubik.cube[LEFT][8] = cube[UP][8];
-
-        // right -> up
-        // 0,3,6 -> 6,7,8
-        new_rubik.cube[UP][6] = cube[RIGHT][0];
-        new_rubik.cube[UP][7] = cube[RIGHT][3];
-        new_rubik.cube[UP][8] = cube[RIGHT][6];
-
-        // down -> right
-        // 0,1,2 -> 0,3,6
-        new_rubik.cube[RIGHT][0] = cube[DOWN][0];
-        new_rubik.cube[RIGHT][3] = cube[DOWN][1];
-        new_rubik.cube[RIGHT][6] = cube[DOWN][2]; 
-        
-        // left -> down
-        // 2,5,8 -> 0,1,2
-        new_rubik.cube[DOWN][0] = cube[LEFT][2];
-        new_rubik.cube[DOWN][1] = cube[LEFT][5];
-        new_rubik.cube[DOWN][2] = cube[LEFT][8]; 
+        rotate_face(FRONT);
+        rotate_edge_pieces(LEFT, {2,5,8}, UP, {6,7,8});
+        rotate_edge_pieces(UP, {6,7,8}, RIGHT, {0,3,6});
+        rotate_edge_pieces(RIGHT, {0,3,6}, DOWN, {0,1,2});
+        rotate_edge_pieces(DOWN, {0,1,2}, LEFT, {2,5,8});
     }
     else if (move == B){
-        // rotate back face
-        // 0 -> 2 -> 8 -> 6
-        // 1 -> 5 -> 7 -> 3
-        int even[] = {0, 2, 8, 6};
-        int odd[] = {1, 5, 7, 3};
-        for (int i = 0; i+1 < 4; ++i){
-            new_rubik.cube[BACK][even[i+1]] = cube[BACK][even[i]];
-            new_rubik.cube[BACK][odd[i+1]] = cube[BACK][odd[i]];
-        }
-        new_rubik.cube[BACK][even[0]] = cube[BACK][even[3]];
-        new_rubik.cube[BACK][odd[0]] = cube[BACK][odd[3]];
-
-        // translate the edge squares
-        // up -> left
-        // 0,1,2 -> 0,3,6
-        new_rubik.cube[LEFT][0] = cube[UP][0];
-        new_rubik.cube[LEFT][3] = cube[UP][1];
-        new_rubik.cube[LEFT][6] = cube[UP][2];
-
-        // right -> up
-        // 2,5,8 -> 0,1,2
-        new_rubik.cube[UP][0] = cube[RIGHT][2];
-        new_rubik.cube[UP][1] = cube[RIGHT][5];
-        new_rubik.cube[UP][2] = cube[RIGHT][8];
-
-        // down -> right
-        // 6,7,8 -> 2,5,8
-        new_rubik.cube[RIGHT][2] = cube[DOWN][6];
-        new_rubik.cube[RIGHT][5] = cube[DOWN][7];
-        new_rubik.cube[RIGHT][8] = cube[DOWN][8]; 
-        
-        // left -> down
-        // 0,3,6 -> 6,7,8
-        new_rubik.cube[DOWN][6] = cube[LEFT][0];
-        new_rubik.cube[DOWN][7] = cube[LEFT][3];
-        new_rubik.cube[DOWN][8] = cube[LEFT][6]; 
+        rotate_face(BACK);
+        rotate_edge_pieces(LEFT, {0,3,6}, UP, {0,1,2});
+        rotate_edge_pieces(UP, {0,1,2}, RIGHT, {2,5,8});
+        rotate_edge_pieces(RIGHT, {2,5,8}, DOWN, {6,7,8});
+        rotate_edge_pieces(DOWN, {6,7,8}, LEFT, {0,3,6});
+    }
+    else if (move == Bi){
+        rotate_face(BACK);
+        rotate_edge_pieces(RIGHT, {2,5,8}, UP, {0,1,2});
+        rotate_edge_pieces(LEFT, {0,3,6}, DOWN, {6,7,8});
+        rotate_edge_pieces(UP, {0,1,2}, LEFT, {0,3,6});
+        rotate_edge_pieces(DOWN, {6,7,8}, RIGHT, {2,5,8});
     }
     return new_rubik;
 }
@@ -244,6 +193,10 @@ int main(){
     Rubik3 cube;
     // cube.show();
     cube.unfold_and_show();
+    cube.next(F).next(Fi).unfold_and_show();
     cube.next(B).unfold_and_show();
+    cube.next(Bi).unfold_and_show();
+    cube.next(B).next(Bi).unfold_and_show();
+   
     return 0;
 }
