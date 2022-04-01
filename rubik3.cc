@@ -83,18 +83,18 @@ Rubik3::Rubik3(){
 void Rubik3::show_face(Face faceId){
     for (int i = 0; i < N; ++i){
         for (int j = 0; j < N; ++j){
-            std::cout << cube[faceId][i * N + j] << ' ';
+            std::cerr << cube[faceId][i * N + j] << ' ';
         }
-        std::cout << '\n';
+        std::cerr << '\n';
     }
 
-    std::cout << '\n';
+    std::cerr << '\n';
 
 }
 
 void Rubik3::show(){
     for (auto face = Face::FRONT; face <= Face::DOWN;){
-        std::cout << face << '\n';
+        std::cerr << face << '\n';
         show_face(face);
         face = static_cast<Face>(static_cast<int>(face) + 1);
     }
@@ -102,31 +102,31 @@ void Rubik3::show(){
 
 void Rubik3::unfold_and_show(){
     auto print_space = [](int n){
-        for (int i = 0; i < n; ++i) std::cout << ' ';
+        for (int i = 0; i < n; ++i) std::cerr << ' ';
     };
 
     auto endl = [](){
-        std::cout << '\n';
+        std::cerr << '\n';
     };
 
     // print UP face
     for (int i = 0; i < N; ++i){
         print_space(6);
         for (int j = 0; j < N; ++j)
-            std::cout << cube[UP][i * N + j] << ' ';
+            std::cerr << cube[UP][i * N + j] << ' ';
         endl();
     }
 
     // print left, front, right, back faces
     for (int i = 0; i < N; ++i){
         for (int j = 0; j < N; ++j)
-            std::cout << cube[LEFT][i * N + j] << ' ';
+            std::cerr << cube[LEFT][i * N + j] << ' ';
         for (int j = 0; j < N; ++j)
-            std::cout << cube[FRONT][i * N + j] << ' ';
+            std::cerr << cube[FRONT][i * N + j] << ' ';
         for (int j = 0; j < N; ++j)
-            std::cout << cube[RIGHT][i * N + j] << ' ';
+            std::cerr << cube[RIGHT][i * N + j] << ' ';
         for (int j = 0; j < N; ++j)
-            std::cout << cube[BACK][i * N + j] << ' ';
+            std::cerr << cube[BACK][i * N + j] << ' ';
         endl();
     }
 
@@ -134,16 +134,13 @@ void Rubik3::unfold_and_show(){
     for (int i = 0; i < N; ++i){
         print_space(6);
         for (int j = 0; j < N; ++j)
-            std::cout << cube[DOWN][i * N + j] << ' ';
+            std::cerr << cube[DOWN][i * N + j] << ' ';
         endl();
     }
     endl();
 }
 
 Rubik3 Rubik3::next(Move move){
-    #ifdef DEBUG
-    std::cout << "Action: " << move << '\n';
-    #endif
     Rubik3 new_rubik = *this;
 
     // Define a lambda to rotate the edge pieces.
@@ -164,7 +161,7 @@ Rubik3 Rubik3::next(Move move){
 
         // 'invert' the subgroups
         if (move == Fi or move == Ri or move == Li or 
-            move == Bi or move == Ui){
+            move == Bi or move == Ui or move == Di){
             std::swap(even[1], even[3]);
             std::swap(odd[1], odd[3]);
         }
@@ -249,7 +246,20 @@ Rubik3 Rubik3::next(Move move){
         rotate_edge_pieces(BACK, {0,1,2}, RIGHT, {0,1,2});
         rotate_edge_pieces(RIGHT, {0,1,2}, FRONT, {0,1,2});
     }
+    else if (move == D){
+        rotate_edge_pieces(RIGHT, {6,7,8}, FRONT, {6,7,8});
+        rotate_edge_pieces(BACK, {6,7,8}, RIGHT, {6,7,8});
+        rotate_edge_pieces(LEFT, {6,7,8}, BACK, {6,7,8});
+        rotate_edge_pieces(FRONT, {6,7,8}, LEFT, {6,7,8});
+    }
+    else if (move == Di){
+        rotate_edge_pieces(FRONT, {6,7,8}, RIGHT, {6,7,8});
+        rotate_edge_pieces(RIGHT, {6,7,8}, BACK, {6,7,8});
+        rotate_edge_pieces(BACK, {6,7,8}, LEFT, {6,7,8});
+        rotate_edge_pieces(LEFT, {6,7,8}, FRONT, {6,7,8});
+    }
     #ifdef DEBUG
+    std::cerr << "Action: " << move << '\n';
     new_rubik.unfold_and_show();
     #endif
     return new_rubik;
@@ -271,15 +281,6 @@ bool Rubik3::is_identity(){
 
 int main(){
     Rubik3 cube;
-    // cube.show();
-    // cube.unfold_and_show();
-    // cube.next(F).next(Fi).unfold_and_show();
-    // cube.next(B).unfold_and_show();
-    // cube.next(Bi).unfold_and_show();
-    // cube.next(B).next(Bi).unfold_and_show();
-    // cube/*.next(L)*/.next(Li).unfold_and_show();
-    // cube.next(Ri).next(R).unfold_and_show();
-    // std::cout << cube.next(R).next(Ri).is_identity() << std::endl;
-    cube.next(Fi).next(Li).next(L).next(Ri).next(Bi).next(U).next(Ui);
+    cube.next(Fi).next(Ri).next(Bi).next(U).next(R).next(Ui).next(Di);
     return 0;
 }
