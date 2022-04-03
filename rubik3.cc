@@ -3,6 +3,8 @@
 #include <map>
 #include <vector>
 #include <array>
+#include <queue>
+#include <unordered_set>
 
 #define N 3
 
@@ -11,7 +13,7 @@ enum Color{
 };
 
 enum Move{
-    R, Ri, L, Li, B, Bi, D, Di, F, Fi, U, Ui
+    R, Ri, L, Li, B, Bi, D, Di, F, Fi, U, Ui,NOP
 };
 
 enum Face{
@@ -56,6 +58,7 @@ std::ostream& operator<<(std::ostream& out, const Move& move){
     case Fi:    out << "Fi";    break;
     case U:     out << "U";     break;
     case Ui:    out << "Ui";    break;
+    case NOP:                   break;
     }
     return out;
 }
@@ -64,11 +67,15 @@ struct Rubik3{
     std::map<Face, std::vector<Color>> cube;
 
     Rubik3();
+    Rubik3& operator=(Rubik3 r);
     void show();
     void show_face(Face faceId);
     void unfold_and_show();
     Rubik3 next(Move move);
     bool is_identity();
+    bool operator==(const Rubik3& r);
+    bool solve();
+    void shuffle(int cnt = 10);
 };
 
 Rubik3::Rubik3(){
@@ -78,6 +85,11 @@ Rubik3::Rubik3(){
     cube[BACK].assign(N * N, BLUE);
     cube[UP].assign(N * N, WHITE);
     cube[DOWN].assign(N * N, YELLOW);
+}
+
+Rubik3& Rubik3::operator=(Rubik3 r){
+    cube = r.cube;
+    return *this;
 }
 
 void Rubik3::show_face(Face faceId){
@@ -141,7 +153,7 @@ void Rubik3::unfold_and_show(){
 }
 
 Rubik3 Rubik3::next(Move move){
-    Rubik3 new_rubik = *this;
+    Rubik3 new_rubik(*this);
 
     // Define a lambda to rotate the edge pieces.
     // f1 is the dest face and f2 is the source face.
@@ -175,6 +187,8 @@ Rubik3 Rubik3::next(Move move){
         case D:case Di:    face = DOWN;    break;
         case F:case Fi:    face = FRONT;   break;
         case U:case Ui:    face = UP;      break;
+        case NOP:
+          break;
         }
 
         // assign the colors
@@ -207,7 +221,7 @@ Rubik3 Rubik3::next(Move move){
     else if (move == Bi){
         rotate_edge_pieces(RIGHT, {2,5,8}, UP, {0,1,2});
         rotate_edge_pieces(LEFT, {0,3,6}, DOWN, {6,7,8});
-        rotate_edge_pieces(UP, {0,1,2}, LEFT, {0,3,6});
+        rotate_edge_pieces(UP, {2,1,0}, LEFT, {0,3,6});
         rotate_edge_pieces(DOWN, {8,7,6}, RIGHT, {2,5,8});
     }
     else if (move == L){
@@ -223,16 +237,16 @@ Rubik3 Rubik3::next(Move move){
         rotate_edge_pieces(UP, {0,3,6}, FRONT, {0,3,6});
     }
     else if (move == R){
-        rotate_edge_pieces(BACK, {0,3,6}, UP, {2,5,8});
+        rotate_edge_pieces(BACK, {6,3,0}, UP, {2,5,8});
         rotate_edge_pieces(DOWN, {2,5,8}, BACK, {0,3,6});
-        rotate_edge_pieces(FRONT, {2,5,8}, DOWN, {2,5,8});
+        rotate_edge_pieces(FRONT, {8,5,2}, DOWN, {2,5,8});
         rotate_edge_pieces(UP, {2,5,8}, FRONT, {2,5,8});
     }
     else if (move == Ri){
         rotate_edge_pieces(FRONT, {2,5,8}, UP, {2,5,8});
         rotate_edge_pieces(DOWN, {2,5,8}, FRONT, {2,5,8});
         rotate_edge_pieces(BACK, {6,3,0}, DOWN, {2,5,8});
-        rotate_edge_pieces(UP, {2,5,8}, BACK, {0,3,6});
+        rotate_edge_pieces(UP, {8,5,2}, BACK, {0,3,6});
     }
     else if (move == U){
         rotate_edge_pieces(LEFT, {0,1,2}, FRONT, {0,1,2});
@@ -259,16 +273,17 @@ Rubik3 Rubik3::next(Move move){
         rotate_edge_pieces(LEFT, {6,7,8}, FRONT, {6,7,8});
     }
     #ifdef DEBUG
-    std::cerr << "Action: " << move << '\n';
-    new_rubik.unfold_and_show();
+    // std::cerr << "Action: " << move << '\n';
+    // new_rubik.unfold_and_show();
     #endif
     return new_rubik;
 }
 
 bool Rubik3::is_identity(){
     auto all_same = [this](Face f) -> bool {
-        for (int i = 0; i+1 < N*N; ++i)
-            if (cube[f][i+1] != cube[f][i])
+        auto c = cube[f][0];
+        for (int i = 1; i < N*N; ++i)
+            if (cube[f][i] != c)
                 return false;
         return true;
     };
@@ -279,8 +294,73 @@ bool Rubik3::is_identity(){
     return true;
 }
 
+bool Rubik3::operator==(const Rubik3& r){
+    return cube == r.cube;
+}
+
+void Rubik3::shuffle(int cnt){
+    auto random_move = []() -> Move {
+        return static_cast<Move>(rand() % ((int)Ui + 1));
+    };
+
+    while (cnt--)
+        *this = next(random_move());
+}
+
+typedef std::pair<Rubik3, Move> State;
+bool Rubik3::solve(){
+    auto reverting_moves = [](Move m1, Move m2) -> bool {
+        if (m1 == F and m2 == Fi)   return true;
+        if (m1 == Fi and m2 == F)   return true;
+        if (m1 == B and m2 == Bi)   return true;
+        if (m1 == Bi and m2 == B)   return true;
+        if (m1 == L and m2 == Li)   return true;
+        if (m1 == Li and m2 == L)   return true;
+        if (m1 == R and m2 == Ri)   return true;
+        if (m1 == Ri and m2 == R)   return true;
+        if (m1 == U and m2 == Ui)   return true;
+        if (m1 == Ui and m2 == U)   return true;
+        if (m1 == D and m2 == Di)   return true;
+        if (m1 == Di and m2 == D)   return true;
+        return false;
+    };
+
+    std::array<Move,12> actions(
+        {R, Ri, L, Li, B, Bi, D, Di, F, Fi, U, Ui});
+    
+    std::queue<State> q;
+    // std::unordered_set<Rubik3> seen;
+    Rubik3 curr = *this;
+    Move last_action;
+    q.push({curr,NOP});
+
+    while (!q.empty()){
+        auto [curr, last_action] = q.front(); q.pop();
+        // std::cerr << "***************\n";
+        // curr.unfold_and_show();
+        // std::cerr << "***************\n";
+
+        if (curr.is_identity()){
+            return true;
+        }
+
+        for (auto& action : actions){
+            // curr.unfold_and_show();
+            // std::cerr << "action: " << action << '\n';
+            Rubik3 next = curr.next(action);
+            // next.unfold_and_show();
+            // std::cerr << "===============================\n";
+            if (reverting_moves(action, last_action))  continue;
+            q.push({next, action});
+        }
+    }
+    return false;
+}
+
 int main(){
     Rubik3 cube;
-    cube.next(Fi).next(Ri).next(Bi).next(U).next(R).next(Ui).next(Di);
+    cube.shuffle(5);
+    cube.unfold_and_show();
+    std::cout << cube.solve() << std::endl;
     return 0;
 }
