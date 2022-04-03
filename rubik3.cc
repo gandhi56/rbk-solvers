@@ -4,7 +4,7 @@
 #include <vector>
 #include <array>
 #include <queue>
-#include <unordered_set>
+#include <unordered_map>
 
 #define N 3
 
@@ -74,7 +74,7 @@ struct Rubik3{
     Rubik3 next(Move move);
     bool is_identity();
     bool operator==(const Rubik3& r);
-    bool solve();
+    bool solve(std::unordered_map<const char*, unsigned int>&);
     void shuffle(int cnt = 10);
 };
 
@@ -308,7 +308,7 @@ void Rubik3::shuffle(int cnt){
 }
 
 typedef std::pair<Rubik3, Move> State;
-bool Rubik3::solve(){
+bool Rubik3::solve(std::unordered_map<const char*, unsigned int>& stats){
     auto reverting_moves = [](Move m1, Move m2) -> bool {
         if (m1 == F and m2 == Fi)   return true;
         if (m1 == Fi and m2 == F)   return true;
@@ -325,42 +325,46 @@ bool Rubik3::solve(){
         return false;
     };
 
+    // initialize BFS containers
     std::array<Move,12> actions(
         {R, Ri, L, Li, B, Bi, D, Di, F, Fi, U, Ui});
-    
     std::queue<State> q;
-    // std::unordered_set<Rubik3> seen;
-    Rubik3 curr = *this;
-    Move last_action;
-    q.push({curr,NOP});
+    q.push({*this, NOP});
 
     while (!q.empty()){
         auto [curr, last_action] = q.front(); q.pop();
-        // std::cerr << "***************\n";
-        // curr.unfold_and_show();
-        // std::cerr << "***************\n";
+        stats["nodes visited"]++;
 
-        if (curr.is_identity()){
+        if (curr.is_identity())
             return true;
-        }
 
         for (auto& action : actions){
-            // curr.unfold_and_show();
-            // std::cerr << "action: " << action << '\n';
             Rubik3 next = curr.next(action);
-            // next.unfold_and_show();
-            // std::cerr << "===============================\n";
-            if (reverting_moves(action, last_action))  continue;
+            if (reverting_moves(action, last_action))
+                continue;
             q.push({next, action});
+            stats["nodes expanded"]++;
         }
     }
     return false;
 }
 
 int main(){
+    // summary metrics
+    std::unordered_map<const char*, unsigned int> stats{
+        {"level", 0},
+        {"nodes expanded", 0},
+        {"nodes visited", 0}
+    };
     Rubik3 cube;
     cube.shuffle(5);
     cube.unfold_and_show();
-    std::cout << cube.solve() << std::endl;
+    std::cout << (cube.solve(stats) ? "SOLVED!" : "UNSOLVED!") << '\n';
+    
+    std::cout << "\n============================\nSUMMARY:\n";
+    for (auto& [k,v] : stats)
+        std::cout << k << " : " << v << '\n';
+    std::cout << "============================\n";
+    
     return 0;
 }
