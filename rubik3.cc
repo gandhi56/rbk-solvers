@@ -1,10 +1,10 @@
 #include <iostream>
 #include <ostream>
-#include <map>
 #include <vector>
 #include <array>
 #include <queue>
 #include <unordered_map>
+#include <algorithm>
 
 #define N 3
 
@@ -64,7 +64,7 @@ std::ostream& operator<<(std::ostream& out, const Move& move){
 }
 
 struct Rubik3{
-    std::map<Face, std::vector<Color>> cube;
+    std::unordered_map<Face, std::vector<Color>> cube;
 
     Rubik3();
     Rubik3& operator=(Rubik3 r);
@@ -76,6 +76,34 @@ struct Rubik3{
     bool operator==(const Rubik3& r);
     bool solve(std::unordered_map<const char*, unsigned int>&);
     void shuffle(int cnt = 10);
+};
+
+typedef std::tuple<Rubik3, Move, unsigned int> State;
+
+struct Rubik3Compare{
+    bool operator()(const State& s1, const State& s2){
+        return true;
+        auto& r1 = std::get<0>(s1);
+        auto& r2 = std::get<0>(s2);
+        auto max_color = [](Rubik3 r, Face f) -> unsigned int {
+            std::unordered_map<Color, unsigned int> m;
+            for (int i = 0; i < N*N; ++i){
+                m[r.cube[f][i]]++;
+            }
+            unsigned int score = 0;
+            for (auto [_,cnt] : m)
+                score = std::max(score, cnt);
+            return score;
+        };
+
+        unsigned score1 = 0;
+        unsigned score2 = 0;
+        for (auto [face,_] : r1.cube)
+            score1 = std::max(score1, max_color(r1, face));
+        for (auto [face,_] : r2.cube)
+            score2 = std::max(score2, max_color(r2, face));
+        return score1 > score2;
+    }
 };
 
 Rubik3::Rubik3(){
@@ -307,7 +335,6 @@ void Rubik3::shuffle(int cnt){
         *this = next(random_move());
 }
 
-typedef std::pair<Rubik3, Move> State;
 bool Rubik3::solve(std::unordered_map<const char*, unsigned int>& stats){
     auto reverting_moves = [](Move m1, Move m2) -> bool {
         if (m1 == F and m2 == Fi)   return true;
@@ -328,12 +355,13 @@ bool Rubik3::solve(std::unordered_map<const char*, unsigned int>& stats){
     // initialize BFS containers
     std::array<Move,12> actions(
         {R, Ri, L, Li, B, Bi, D, Di, F, Fi, U, Ui});
-    std::queue<State> q;
-    q.push({*this, NOP});
+    std::priority_queue<State, std::vector<State>, Rubik3Compare> q;
+    q.push({*this, NOP, 1});
 
     while (!q.empty()){
-        auto [curr, last_action] = q.front(); q.pop();
+        auto [curr, last_action, depth] = q.top(); q.pop();
         stats["nodes visited"]++;
+        stats["level"] = depth;
 
         if (curr.is_identity())
             return true;
@@ -342,7 +370,7 @@ bool Rubik3::solve(std::unordered_map<const char*, unsigned int>& stats){
             Rubik3 next = curr.next(action);
             if (reverting_moves(action, last_action))
                 continue;
-            q.push({next, action});
+            q.push({next, action, depth+1});
             stats["nodes expanded"]++;
         }
     }
@@ -350,14 +378,15 @@ bool Rubik3::solve(std::unordered_map<const char*, unsigned int>& stats){
 }
 
 int main(){
-    // summary metrics
+    srand(time(0));
+
     std::unordered_map<const char*, unsigned int> stats{
         {"level", 0},
         {"nodes expanded", 0},
         {"nodes visited", 0}
     };
     Rubik3 cube;
-    cube.shuffle(5);
+    cube.shuffle(2);
     cube.unfold_and_show();
     std::cout << (cube.solve(stats) ? "SOLVED!" : "UNSOLVED!") << '\n';
     
